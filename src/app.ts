@@ -6,7 +6,6 @@ import httpStatus from 'http-status';
 import { config } from './config';
 import routes from './routes';
 import { errorConverter, errorHandler } from './middlewares/errorHandler';
-import { limiter } from './middlewares/rateLimiter';
 import createApiError from './utils/ApiError';
 
 const app: Application = express();
@@ -24,9 +23,6 @@ app.use(express.urlencoded({ extended: true }));
 
 // Compression
 app.use(compression());
-
-// Rate limiting
-app.use(`/api/${config.apiVersion}`, limiter);
 
 // API routes
 app.use(`/api/${config.apiVersion}`, routes);
