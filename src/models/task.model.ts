@@ -45,6 +45,9 @@ export class Task {
   })
   priority!: TaskPriority;
 
+  @Column({ type: 'uuid', nullable: true, name: 'project_id' })
+  projectId?: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
@@ -57,6 +60,7 @@ export interface CreateTaskDTO {
   description?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
+  projectId?: string;
 }
 
 export interface UpdateTaskDTO {
@@ -64,4 +68,5 @@ export interface UpdateTaskDTO {
   description?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
+  projectId?: string;
 }

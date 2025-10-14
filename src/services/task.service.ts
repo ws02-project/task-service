@@ -71,6 +71,7 @@ export const createTask = async (taskData: CreateTaskDTO): Promise<Task> => {
     description: taskData.description,
     status: taskData.status || TaskStatus.PENDING,
     priority: taskData.priority || TaskPriority.MEDIUM,
+    projectId: taskData.projectId,
   });
 
   return await taskRepository.save(task);
@@ -120,4 +121,58 @@ export const getTaskStatistics = async () => {
       cancelled,
     },
   };
+};
+
+/**
+ * Get tasks by project ID
+ */
+export const getTasksByProjectId = async (projectId: string): Promise<Task[]> => {
+  const taskRepository = getTaskRepository();
+  return await taskRepository.find({
+    where: { projectId },
+    order: {
+      createdAt: 'DESC',
+    },
+  });
+};
+
+/**
+ * Get task statistics by project ID
+ */
+export const getTaskStatisticsByProjectId = async (projectId: string) => {
+  const taskRepository = getTaskRepository();
+  const [total, pending, inProgress, completed, cancelled] = await Promise.all([
+    taskRepository.count({ where: { projectId } }),
+    taskRepository.count({ where: { projectId, status: TaskStatus.PENDING } }),
+    taskRepository.count({ where: { projectId, status: TaskStatus.IN_PROGRESS } }),
+    taskRepository.count({ where: { projectId, status: TaskStatus.COMPLETED } }),
+    taskRepository.count({ where: { projectId, status: TaskStatus.CANCELLED } }),
+  ]);
+
+  return {
+    projectId,
+    total,
+    byStatus: {
+      pending,
+      inProgress,
+      completed,
+      cancelled,
+    },
+    completionRate: total > 0 ? ((completed / total) * 100).toFixed(2) : '0.00',
+  };
+};
+
+/**
+ * Delete all tasks by project ID
+ */
+export const deleteTasksByProjectId = async (projectId: string): Promise<number> => {
+  const taskRepository = getTaskRepository();
+  const tasks = await getTasksByProjectId(projectId);
+
+  if (tasks.length === 0) {
+    return 0;
+  }
+
+  await taskRepository.remove(tasks);
+  return tasks.length;
 };

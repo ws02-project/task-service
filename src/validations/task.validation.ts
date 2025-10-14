@@ -11,6 +11,7 @@ export const createTaskSchema = {
     priority: Joi.string()
       .valid(...Object.values(TaskPriority))
       .optional(),
+    projectId: Joi.string().uuid().optional(),
   }),
 };
 
@@ -24,6 +25,7 @@ export const updateTaskSchema = {
     priority: Joi.string()
       .valid(...Object.values(TaskPriority))
       .optional(),
+    projectId: Joi.string().uuid().optional(),
   }).min(1),
   params: Joi.object({
     id: Joi.string().uuid().required(),
