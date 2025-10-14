@@ -7,7 +7,7 @@ import { config } from './config';
 import routes from './routes';
 import { errorConverter, errorHandler } from './middlewares/errorHandler';
 import { limiter } from './middlewares/rateLimiter';
-import ApiError from './utils/ApiError';
+import createApiError from './utils/ApiError';
 
 const app: Application = express();
 
@@ -33,7 +33,7 @@ app.use(`/api/${config.apiVersion}`, routes);
 
 // 404 handler
 app.use((_req: Request, _res: Response, next: NextFunction) => {
-  next(new ApiError(httpStatus.NOT_FOUND, 'Not found'));
+  next(createApiError(httpStatus.NOT_FOUND, 'Not found'));
 });
 
 // Error handling

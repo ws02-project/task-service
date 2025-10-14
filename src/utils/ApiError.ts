@@ -1,17 +1,26 @@
-class ApiError extends Error {
+interface ApiErrorType extends Error {
   statusCode: number;
   isOperational: boolean;
-
-  constructor(statusCode: number, message: string, isOperational = true, stack = '') {
-    super(message);
-    this.statusCode = statusCode;
-    this.isOperational = isOperational;
-    if (stack) {
-      this.stack = stack;
-    } else {
-      Error.captureStackTrace(this, this.constructor);
-    }
-  }
 }
 
-export default ApiError;
+const createApiError = (
+  statusCode: number,
+  message: string,
+  isOperational = true,
+  stack = '',
+): ApiErrorType => {
+  const error = new Error(message) as ApiErrorType;
+  error.statusCode = statusCode;
+  error.isOperational = isOperational;
+
+  if (stack) {
+    error.stack = stack;
+  } else {
+    Error.captureStackTrace(error, createApiError);
+  }
+
+  return error;
+};
+
+export type { ApiErrorType };
+export default createApiError;

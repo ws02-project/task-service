@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import httpStatus from 'http-status';
-import taskService from '../services/task.service';
+import * as taskService from '../services/task.service';
 import catchAsync from '../utils/catchAsync';
 
 export const getAllTasks = catchAsync(async (_req: Request, res: Response) => {
