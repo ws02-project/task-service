@@ -1,13 +1,6 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
-import {
-  ProjectResponse,
-  ValidateProjectAccessResponse,
-  ProjectMembersResponse,
-  CanAddTasksResponse,
-  GrpcError,
-} from '../../types/grpc.types';
 
 const PROTO_PATH = path.resolve(__dirname, '../../../proto/project.proto');
 
@@ -19,47 +12,23 @@ const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
   oneofs: true,
 });
 
-interface ProjectServiceClient extends grpc.Client {
-  GetProject: (
-    request: { project_id: string },
-    callback: (error: GrpcError | null, response: ProjectResponse) => void,
-  ) => void;
-  ValidateProjectAccess: (
-    request: { project_id: string; user_id: string },
-    callback: (error: GrpcError | null, response: ValidateProjectAccessResponse) => void,
-  ) => void;
-  GetProjectMembers: (
-    request: { project_id: string },
-    callback: (error: GrpcError | null, response: ProjectMembersResponse) => void,
-  ) => void;
-  CanAddTasks: (
-    request: { project_id: string },
-    callback: (error: GrpcError | null, response: CanAddTasksResponse) => void,
-  ) => void;
-}
-
-const projectProto = grpc.loadPackageDefinition(packageDefinition).project as unknown as {
-  ProjectService: new (
-    address: string,
-    credentials: grpc.ChannelCredentials,
-  ) => ProjectServiceClient;
-};
+const projectProto = grpc.loadPackageDefinition(packageDefinition).project as any;
 
 /**
  * Get Project gRPC Client
  * Connects to project-service gRPC server
  */
-export const getProjectClient = (serverAddress = 'localhost:50051'): ProjectServiceClient => {
+export const getProjectClient = (serverAddress: string = 'localhost:50051') => {
   return new projectProto.ProjectService(serverAddress, grpc.credentials.createInsecure());
 };
 
 /**
  * Get Project by ID
  */
-export const getProject = (projectId: string, serverAddress?: string): Promise<ProjectResponse> => {
+export const getProject = (projectId: string, serverAddress?: string): Promise<any> => {
   return new Promise((resolve, reject) => {
     const client = getProjectClient(serverAddress);
-    client.GetProject({ project_id: projectId }, (error, response) => {
+    client.GetProject({ project_id: projectId }, (error: any, response: any) => {
       if (error) {
         reject(error);
       } else {
@@ -76,29 +45,29 @@ export const validateProjectAccess = (
   projectId: string,
   userId: string,
   serverAddress?: string,
-): Promise<ValidateProjectAccessResponse> => {
+): Promise<any> => {
   return new Promise((resolve, reject) => {
     const client = getProjectClient(serverAddress);
-    client.ValidateProjectAccess({ project_id: projectId, user_id: userId }, (error, response) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(response);
-      }
-    });
+    client.ValidateProjectAccess(
+      { project_id: projectId, user_id: userId },
+      (error: any, response: any) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(response);
+        }
+      },
+    );
   });
 };
 
 /**
  * Get Project Members
  */
-export const getProjectMembers = (
-  projectId: string,
-  serverAddress?: string,
-): Promise<ProjectMembersResponse> => {
+export const getProjectMembers = (projectId: string, serverAddress?: string): Promise<any> => {
   return new Promise((resolve, reject) => {
     const client = getProjectClient(serverAddress);
-    client.GetProjectMembers({ project_id: projectId }, (error, response) => {
+    client.GetProjectMembers({ project_id: projectId }, (error: any, response: any) => {
       if (error) {
         reject(error);
       } else {
@@ -111,13 +80,10 @@ export const getProjectMembers = (
 /**
  * Check if project can accept new tasks
  */
-export const canAddTasks = (
-  projectId: string,
-  serverAddress?: string,
-): Promise<CanAddTasksResponse> => {
+export const canAddTasks = (projectId: string, serverAddress?: string): Promise<any> => {
   return new Promise((resolve, reject) => {
     const client = getProjectClient(serverAddress);
-    client.CanAddTasks({ project_id: projectId }, (error, response) => {
+    client.CanAddTasks({ project_id: projectId }, (error: any, response: any) => {
       if (error) {
         reject(error);
       } else {
