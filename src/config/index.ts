@@ -8,6 +8,15 @@ export const config = {
   apiVersion: process.env.API_VERSION || 'v1',
   serviceName: process.env.SERVICE_NAME || 'task-service',
   logLevel: process.env.LOG_LEVEL || 'info',
+  db: {
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '5432', 10),
+    name: process.env.DB_NAME || 'taskdb',
+    user: process.env.DB_USER || 'taskuser',
+    password: process.env.DB_PASSWORD || 'taskpass',
+    poolMin: parseInt(process.env.DB_POOL_MIN || '2', 10),
+    poolMax: parseInt(process.env.DB_POOL_MAX || '10', 10),
+  },
   rateLimit: {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),
     maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
@@ -16,3 +25,5 @@ export const config = {
 
 export const isProduction = config.env === 'production';
 export const isDevelopment = config.env === 'development';
+
+export default config;

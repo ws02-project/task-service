@@ -1,32 +1,43 @@
 import Joi from 'joi';
+import { TaskStatus, TaskPriority } from '../models/task.model';
 
 export const createTaskSchema = {
   body: Joi.object({
-    title: Joi.string().required().min(1).max(200),
-    description: Joi.string().optional().max(1000),
-    status: Joi.string().valid('pending', 'in-progress', 'completed').optional(),
+    title: Joi.string().required().min(1).max(255),
+    description: Joi.string().optional().max(5000),
+    status: Joi.string()
+      .valid(...Object.values(TaskStatus))
+      .optional(),
+    priority: Joi.string()
+      .valid(...Object.values(TaskPriority))
+      .optional(),
   }),
 };
 
 export const updateTaskSchema = {
   body: Joi.object({
-    title: Joi.string().optional().min(1).max(200),
-    description: Joi.string().optional().max(1000),
-    status: Joi.string().valid('pending', 'in-progress', 'completed').optional(),
+    title: Joi.string().optional().min(1).max(255),
+    description: Joi.string().optional().max(5000),
+    status: Joi.string()
+      .valid(...Object.values(TaskStatus))
+      .optional(),
+    priority: Joi.string()
+      .valid(...Object.values(TaskPriority))
+      .optional(),
   }).min(1),
   params: Joi.object({
-    id: Joi.string().required(),
+    id: Joi.string().uuid().required(),
   }),
 };
 
 export const getTaskSchema = {
   params: Joi.object({
-    id: Joi.string().required(),
+    id: Joi.string().uuid().required(),
   }),
 };
 
 export const deleteTaskSchema = {
   params: Joi.object({
-    id: Joi.string().required(),
+    id: Joi.string().uuid().required(),
   }),
 };

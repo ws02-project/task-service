@@ -1,48 +1,78 @@
-import { Task, CreateTaskDTO, UpdateTaskDTO } from '../models/task.model';
+import { Repository } from 'typeorm';
+import { Task, CreateTaskDTO, UpdateTaskDTO, TaskStatus, TaskPriority } from '../models/task.model';
 import ApiError from '../utils/ApiError';
 import httpStatus from 'http-status';
+import { AppDataSource } from '../config/database';
 
-// In-memory storage (replace with database in production)
 class TaskService {
-  private tasks: Map<string, Task> = new Map();
-  private idCounter = 1;
+  private taskRepository: Repository<Task>;
+
+  constructor() {
+    this.taskRepository = AppDataSource.getRepository(Task);
+  }
 
   /**
    * Get all tasks
    */
   async getAllTasks(): Promise<Task[]> {
-    return Array.from(this.tasks.values());
+    return await this.taskRepository.find({
+      order: {
+        createdAt: 'DESC',
+      },
+    });
   }
 
   /**
    * Get task by ID
    */
   async getTaskById(id: string): Promise<Task> {
-    const task = this.tasks.get(id);
+    const task = await this.taskRepository.findOne({
+      where: { id },
+    });
+
     if (!task) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Task not found');
     }
+
     return task;
+  }
+
+  /**
+   * Get tasks by status
+   */
+  async getTasksByStatus(status: TaskStatus): Promise<Task[]> {
+    return await this.taskRepository.find({
+      where: { status },
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+  }
+
+  /**
+   * Get tasks by priority
+   */
+  async getTasksByPriority(priority: TaskPriority): Promise<Task[]> {
+    return await this.taskRepository.find({
+      where: { priority },
+      order: {
+        createdAt: 'DESC',
+      },
+    });
   }
 
   /**
    * Create a new task
    */
   async createTask(taskData: CreateTaskDTO): Promise<Task> {
-    const id = (this.idCounter++).toString();
-    const now = new Date();
-
-    const task: Task = {
-      id,
+    const task = this.taskRepository.create({
       title: taskData.title,
       description: taskData.description,
-      status: taskData.status || 'pending',
-      createdAt: now,
-      updatedAt: now,
-    };
+      status: taskData.status || TaskStatus.PENDING,
+      priority: taskData.priority || TaskPriority.MEDIUM,
+    });
 
-    this.tasks.set(id, task);
-    return task;
+    return await this.taskRepository.save(task);
   }
 
   /**
@@ -51,14 +81,10 @@ class TaskService {
   async updateTask(id: string, updateData: UpdateTaskDTO): Promise<Task> {
     const task = await this.getTaskById(id);
 
-    const updatedTask: Task = {
-      ...task,
-      ...updateData,
-      updatedAt: new Date(),
-    };
+    // Merge update data with existing task
+    Object.assign(task, updateData);
 
-    this.tasks.set(id, updatedTask);
-    return updatedTask;
+    return await this.taskRepository.save(task);
   }
 
   /**
@@ -66,7 +92,30 @@ class TaskService {
    */
   async deleteTask(id: string): Promise<void> {
     const task = await this.getTaskById(id);
-    this.tasks.delete(task.id);
+    await this.taskRepository.remove(task);
+  }
+
+  /**
+   * Get task statistics
+   */
+  async getTaskStatistics() {
+    const [total, pending, inProgress, completed, cancelled] = await Promise.all([
+      this.taskRepository.count(),
+      this.taskRepository.count({ where: { status: TaskStatus.PENDING } }),
+      this.taskRepository.count({ where: { status: TaskStatus.IN_PROGRESS } }),
+      this.taskRepository.count({ where: { status: TaskStatus.COMPLETED } }),
+      this.taskRepository.count({ where: { status: TaskStatus.CANCELLED } }),
+    ]);
+
+    return {
+      total,
+      byStatus: {
+        pending,
+        inProgress,
+        completed,
+        cancelled,
+      },
+    };
   }
 }
 

@@ -16,7 +16,7 @@ if ! docker images | grep -q "task-service_task-service-dev"; then
 fi
 
 # Start the container
-echo "🐳 Starting container..."
+echo "🐳 Starting containers..."
 docker-compose up
 
 # Cleanup function for graceful shutdown
