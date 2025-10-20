@@ -2,7 +2,7 @@ import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
 import logger from '../utils/logger';
-import * as taskGrpcService from './services/task.grpc.service';
+import { getTasksByProjectGrpc, deleteTasksByProjectGrpc } from '../services/task.service';
 
 const PROTO_PATH = path.resolve(__dirname, '../../proto/task.proto');
 
@@ -24,10 +24,8 @@ export const startGrpcServer = (port: number = 50052): grpc.Server => {
 
   // Register TaskService methods
   server.addService(taskProto.TaskService.service, {
-    GetTasksByProject: taskGrpcService.getTasksByProject,
-    GetTaskStatistics: taskGrpcService.getTaskStatistics,
-    DeleteTasksByProject: taskGrpcService.deleteTasksByProject,
-    CountTasksByProject: taskGrpcService.countTasksByProject,
+    GetTasksByProject: getTasksByProjectGrpc, // GET example
+    DeleteTasksByProject: deleteTasksByProjectGrpc, // POST example
   });
 
   server.bindAsync(

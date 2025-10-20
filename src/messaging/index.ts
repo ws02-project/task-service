@@ -1,6 +1,7 @@
 import { EventBus, ServiceRegistration } from './EventBus';
 import { config } from '../config';
 import logger from '../utils/logger';
+import { handleProjectCreated, handleProjectDeleted } from '../services/task.service';
 
 // Create EventBus instance
 export const eventBus = new EventBus('task-service', 'microservices.exchange');
@@ -41,18 +42,8 @@ export async function initializeMessaging(): Promise<void> {
           sourceService: 'project-service',
         },
         {
-          eventType: 'project.updated',
-          routingKey: 'project.updated',
-          sourceService: 'project-service',
-        },
-        {
           eventType: 'project.deleted',
           routingKey: 'project.deleted',
-          sourceService: 'project-service',
-        },
-        {
-          eventType: 'project.archived',
-          routingKey: 'project.archived',
           sourceService: 'project-service',
         },
       ],
@@ -78,33 +69,9 @@ export async function initializeMessaging(): Promise<void> {
  * Register handlers for events from other services
  */
 function registerEventHandlers(): void {
-  // Handle project created events
-  eventBus.on('project.created', 'project.ProjectCreatedEvent', async (event, _metadata) => {
-    logger.info(`🆕 Project created: ${event.projectId}`, {
-      name: event.name,
-      status: event.status,
-    });
-    // Perform any necessary initialization for the new project
-  });
-
-  // Handle project updated events
-  eventBus.on('project.updated', 'project.ProjectUpdatedEvent', async (event, _metadata) => {
-    logger.info(`📝 Project updated: ${event.projectId}`, {
-      changes: event.changes,
-    });
-  });
-
-  // Handle project deleted events
-  eventBus.on('project.deleted', 'project.ProjectDeletedEvent', async (event, _metadata) => {
-    logger.info(`🗑️ Project deleted: ${event.projectId}`);
-    // Delete all tasks for this project
-  });
-
-  // Handle project archived events
-  eventBus.on('project.archived', 'project.ProjectArchivedEvent', async (event, _metadata) => {
-    logger.info(`📦 Project archived: ${event.projectId}`);
-    // Archive or close all tasks for this project
-  });
+  // Handle project events - handlers are in task.service.ts
+  eventBus.on('project.created', 'project.ProjectCreatedEvent', handleProjectCreated);
+  eventBus.on('project.deleted', 'project.ProjectDeletedEvent', handleProjectDeleted);
 }
 
 /**
