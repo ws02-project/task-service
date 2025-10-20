@@ -23,11 +23,6 @@ export const config = {
   },
   rabbitmq: {
     url: process.env.RABBITMQ_URL || 'amqp://admin:admin123@rabbitmq:5672',
-    queues: {
-      taskEvents: 'task.events',
-      taskEventsDLQ: 'task.events.dlq',
-    },
-    exchange: 'tasks.exchange',
   },
   rateLimit: {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),

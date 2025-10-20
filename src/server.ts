@@ -6,7 +6,7 @@ import { config } from './config';
 import logger from './utils/logger';
 import { initializeDatabase, closeDatabase } from './config/database';
 import { startGrpcServer, shutdownGrpcServer } from './grpc/server';
-import { initializeRabbitMQ, closeRabbitMQ } from './config/rabbitmq';
+import { initializeMessaging, closeMessaging } from './messaging';
 
 let server: Server | undefined;
 let grpcServer: grpc.Server | undefined;
@@ -17,9 +17,9 @@ const startServer = async () => {
     await initializeDatabase();
     logger.info('✅ Database initialized successfully');
 
-    // Initialize RabbitMQ
-    await initializeRabbitMQ();
-    logger.info('✅ RabbitMQ initialized successfully');
+    // Initialize EventBus messaging system
+    await initializeMessaging();
+    logger.info('✅ EventBus messaging initialized successfully');
 
     // Start gRPC server
     const grpcPort = config.grpc?.port || 50052;
@@ -47,7 +47,7 @@ const exitHandler = async () => {
       if (grpcServer) {
         await shutdownGrpcServer(grpcServer);
       }
-      await closeRabbitMQ();
+      await closeMessaging();
       await closeDatabase();
       process.exit(1);
     });
@@ -55,7 +55,7 @@ const exitHandler = async () => {
     if (grpcServer) {
       await shutdownGrpcServer(grpcServer);
     }
-    await closeRabbitMQ();
+    await closeMessaging();
     await closeDatabase();
     process.exit(1);
   }
@@ -76,7 +76,7 @@ process.on('SIGTERM', async () => {
       if (grpcServer) {
         await shutdownGrpcServer(grpcServer);
       }
-      await closeRabbitMQ();
+      await closeMessaging();
       await closeDatabase();
     });
   }
