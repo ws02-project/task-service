@@ -4,11 +4,14 @@ import path from 'path';
 import logger from '../utils/logger';
 import { getTasksByProjectGrpc, deleteTasksByProjectGrpc } from '../services/task.service';
 
+interface TaskProtoNamespace {
+  TaskService: {
+    service: grpc.ServiceDefinition;
+  };
+}
+
 const PROTO_PATH = path.resolve(__dirname, '../../proto/task.proto');
 
-/**
- * Start gRPC Server for Task Service
- */
 export const startGrpcServer = (port: number = 50052): grpc.Server => {
   const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
     keepCase: true,
@@ -18,14 +21,14 @@ export const startGrpcServer = (port: number = 50052): grpc.Server => {
     oneofs: true,
   });
 
-  const taskProto = grpc.loadPackageDefinition(packageDefinition).task as any;
+  const taskProto = grpc.loadPackageDefinition(packageDefinition)
+    .task as unknown as TaskProtoNamespace;
 
   const server = new grpc.Server();
 
-  // Register TaskService methods
   server.addService(taskProto.TaskService.service, {
-    GetTasksByProject: getTasksByProjectGrpc, // GET example
-    DeleteTasksByProject: deleteTasksByProjectGrpc, // POST example
+    GetTasksByProject: getTasksByProjectGrpc,
+    DeleteTasksByProject: deleteTasksByProjectGrpc,
   });
 
   server.bindAsync(
