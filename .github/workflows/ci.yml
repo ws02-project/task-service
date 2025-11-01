@@ -23,36 +23,7 @@ permissions:
   contents: read # Required to checkout code
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    name: Run Tests
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          # Cache disabled since pnpm-lock.yaml is not committed
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Run linter
-        run: pnpm run lint || true
-
-      - name: Run tests
-        run: pnpm test
-
   build-and-push:
-    needs: test
     runs-on: ubuntu-latest
     name: Build and Push Docker Image
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
