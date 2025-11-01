@@ -14,7 +14,7 @@ on:
 env:
   AWS_REGION: ap-southeast-1
   ECR_REGISTRY: 158670175038.dkr.ecr.ap-southeast-1.amazonaws.com
-  ECR_REPOSITORY: registry
+  ECR_REPOSITORY: docker
   SERVICE_NAME: task-service
   IMAGE_NAME: task
 
