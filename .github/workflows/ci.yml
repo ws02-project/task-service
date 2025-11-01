@@ -32,6 +32,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Debug - Check AWS_ROLE_ARN variable
+        run: |
+          echo "AWS_ROLE_ARN value: ${{ vars.AWS_ROLE_ARN }}"
+          if [ -z "${{ vars.AWS_ROLE_ARN }}" ]; then
+            echo "⚠️  WARNING: AWS_ROLE_ARN variable is not set!"
+            echo "Please add it as a repository variable:"
+            echo "Repository → Settings → Secrets and variables → Actions → Variables"
+            echo "Name: AWS_ROLE_ARN"
+            echo "Value: arn:aws:iam::158670175038:role/registry-github-actions-role"
+            exit 1
+          fi
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
