@@ -37,7 +37,7 @@ jobs:
         with:
           repository: ws02-project/proto
           path: proto
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Debug - Check AWS_ROLE_ARN variable
         run: |
