@@ -6,7 +6,7 @@ This workflow builds and pushes the Task Service Docker image to AWS ECR using O
 
 1. **Add Repository Variable**:
    - Repository → Settings → Secrets and variables → Actions → Variables
-   - Add variable: `AWS_ROLE_ARN` = `arn:aws:iam::158670175038:role/registry-github-actions-role`
+   - Add variable: `AWS_ROLE_ARN` = `arn:aws:iam::158670175038:role/ecr-registry-github-actions-role`
    - Note: ARNs are not secrets, so use a variable instead
 
 2. **Enable OIDC**:
@@ -17,13 +17,13 @@ This workflow builds and pushes the Task Service Docker image to AWS ECR using O
 
 - ✅ Runs tests and linter
 - ✅ Builds Docker image
-- ✅ Pushes to ECR: `158670175038.dkr.ecr.ap-southeast-1.amazonaws.com/registry:task-<tag>`
+- ✅ Pushes to ECR: `158670175038.dkr.ecr.ap-southeast-1.amazonaws.com/docker:task-<tag>`
 - ✅ Also tags as `latest`
 
 ## Image Tags
 
 - **Commit SHA**: `task-<8-char-sha>`
 - **Git Tag (v\*)**: `task-v<version>`
-- **Latest**: `task:latest`
+- **Latest**: `task-latest`
 
-Example: `158670175038.dkr.ecr.ap-southeast-1.amazonaws.com/registry:task-a1b2c3d4`
+Example: `158670175038.dkr.ecr.ap-southeast-1.amazonaws.com/docker:task-a1b2c3d4`
