@@ -156,6 +156,28 @@ export async function publishTaskStatusChanged(
 }
 
 /**
+ * Publish task assigned event
+ */
+export async function publishTaskAssigned(
+  taskId: string,
+  projectId: string,
+  assignedTo: string,
+  assignedBy?: string,
+  taskTitle?: string,
+  taskDescription?: string,
+): Promise<void> {
+  await eventBus.publish('task.assigned', 'task.assigned', 'task.TaskAssignedEvent', {
+    taskId,
+    projectId,
+    assignedTo,
+    assignedBy: assignedBy || '',
+    timestamp: Date.now(),
+    title: taskTitle || '',
+    description: taskDescription || '',
+  });
+}
+
+/**
  * Close messaging connections
  */
 export async function closeMessaging(): Promise<void> {

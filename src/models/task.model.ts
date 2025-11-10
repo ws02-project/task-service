@@ -48,6 +48,9 @@ export class Task {
   @Column({ type: 'uuid', nullable: true, name: 'project_id' })
   projectId?: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'assigned_to' })
+  assignedTo?: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
@@ -61,6 +64,7 @@ export interface CreateTaskDTO {
   status?: TaskStatus;
   priority?: TaskPriority;
   projectId?: string;
+  assignedTo?: string;
 }
 
 export interface UpdateTaskDTO {
@@ -69,4 +73,5 @@ export interface UpdateTaskDTO {
   status?: TaskStatus;
   priority?: TaskPriority;
   projectId?: string;
+  assignedTo?: string;
 }

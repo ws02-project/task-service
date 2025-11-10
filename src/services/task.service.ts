@@ -5,6 +5,7 @@ import httpStatus from 'http-status';
 import { AppDataSource } from '../config/database';
 import * as grpc from '@grpc/grpc-js';
 import logger from '../utils/logger';
+import { publishTaskAssigned } from '../messaging';
 
 const getTaskRepository = (): Repository<Task> => AppDataSource.getRepository(Task);
 
@@ -50,16 +51,69 @@ export const createTask = async (taskData: CreateTaskDTO): Promise<Task> => {
     status: taskData.status || TaskStatus.PENDING,
     priority: taskData.priority || TaskPriority.MEDIUM,
     projectId: taskData.projectId,
+    assignedTo: taskData.assignedTo,
   });
 
-  return await taskRepository.save(task);
+  const savedTask = await taskRepository.save(task);
+
+  // Publish task assigned event if assignedTo is provided
+  if (savedTask.assignedTo && savedTask.projectId) {
+    try {
+      await publishTaskAssigned(
+        savedTask.id,
+        savedTask.projectId,
+        savedTask.assignedTo,
+        undefined, // assignedBy - could be extracted from request context in the future
+        savedTask.title,
+        savedTask.description || undefined,
+      );
+      logger.info(`📤 Published task.assigned event for task ${savedTask.id}`);
+    } catch (error) {
+      logger.error('Failed to publish task assigned event:', error);
+      // Don't fail the task creation if event publishing fails
+    }
+  }
+
+  return savedTask;
 };
 
 export const updateTask = async (id: string, updateData: UpdateTaskDTO): Promise<Task> => {
   const taskRepository = getTaskRepository();
   const task = await getTaskById(id);
+
+  // Check if assignment is changing
+  const wasAssigned = task.assignedTo;
+  const isBeingAssigned = updateData.assignedTo && updateData.assignedTo !== task.assignedTo;
+  const isBeingUnassigned = updateData.assignedTo === null || updateData.assignedTo === '';
+
   Object.assign(task, updateData);
-  return await taskRepository.save(task);
+  const savedTask = await taskRepository.save(task);
+
+  // Publish task assigned event if:
+  // 1. Task is being newly assigned (wasn't assigned before, now is)
+  // 2. Task assignment is changing to a different user
+  if (isBeingAssigned && savedTask.projectId && savedTask.assignedTo) {
+    try {
+      await publishTaskAssigned(
+        savedTask.id,
+        savedTask.projectId,
+        savedTask.assignedTo,
+        undefined, // assignedBy - could be extracted from request context in the future
+        savedTask.title,
+        savedTask.description || undefined,
+      );
+      logger.info(
+        `📤 Published task.assigned event for task ${savedTask.id} (assigned to ${savedTask.assignedTo})`,
+      );
+    } catch (error) {
+      logger.error('Failed to publish task assigned event:', error);
+      // Don't fail the task update if event publishing fails
+    }
+  } else if (isBeingUnassigned && wasAssigned) {
+    logger.info(`📝 Task ${savedTask.id} unassigned (was assigned to ${wasAssigned})`);
+  }
+
+  return savedTask;
 };
 
 export const deleteTask = async (id: string): Promise<void> => {
@@ -145,6 +199,7 @@ export const getTasksByProjectGrpc = async (
         status: task.status,
         priority: task.priority,
         project_id: task.projectId || '',
+        assigned_to: task.assignedTo || '',
         created_at: task.createdAt.toISOString(),
         updated_at: task.updatedAt.toISOString(),
       })),
