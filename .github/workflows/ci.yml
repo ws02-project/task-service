@@ -21,6 +21,7 @@ env:
 permissions:
   id-token: write # Required for OIDC authentication
   contents: read # Required to checkout code
+  security-events: write # Required to upload Trivy scan results to GitHub Security
 
 jobs:
   build-and-push:
@@ -73,6 +74,23 @@ jobs:
           echo "image=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_NAME }}-$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "image_latest=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_NAME }}-latest" >> $GITHUB_OUTPUT
 
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '0' # Don't fail on filesystem scan, just report
+
+      - name: Upload Trivy filesystem scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-fs-results.sarif'
+          category: 'trivy-fs'
+
       - name: Build Docker image
         env:
           IMAGE_NAME: ${{ steps.meta.outputs.image }}
@@ -80,6 +98,32 @@ jobs:
           echo "Building Docker image: $IMAGE_NAME"
           docker build -t $IMAGE_NAME -f Dockerfile .
           docker tag $IMAGE_NAME ${{ steps.meta.outputs.image_latest }}
+
+      - name: Run Trivy image scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: ${{ steps.meta.outputs.image }}
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1' # Fail pipeline if CRITICAL or HIGH vulnerabilities found
+
+      - name: Upload Trivy image scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-image-results.sarif'
+          category: 'trivy-image'
+
+      - name: Run Trivy image scan (Table output)
+        uses: aquasecurity/trivy-action@master
+        if: always()
+        with:
+          scan-type: 'image'
+          image-ref: ${{ steps.meta.outputs.image }}
+          format: 'table'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
 
       - name: Push Docker image to ECR
         env:
