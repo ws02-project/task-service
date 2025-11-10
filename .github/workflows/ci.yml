@@ -98,12 +98,14 @@ jobs:
           echo "Building Docker image: $IMAGE_NAME"
           docker build -t $IMAGE_NAME -f Dockerfile .
           docker tag $IMAGE_NAME ${{ steps.meta.outputs.image_latest }}
+          # Also tag with a simple local name for Trivy scanning
+          docker tag $IMAGE_NAME ${{ env.SERVICE_NAME }}:scan
 
       - name: Run Trivy image scan
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'image'
-          image-ref: ${{ steps.meta.outputs.image }}
+          image-ref: '${{ env.SERVICE_NAME }}:scan'
           format: 'sarif'
           output: 'trivy-image-results.sarif'
           severity: 'CRITICAL,HIGH'
@@ -121,7 +123,7 @@ jobs:
         if: always()
         with:
           scan-type: 'image'
-          image-ref: ${{ steps.meta.outputs.image }}
+          image-ref: '${{ env.SERVICE_NAME }}:scan'
           format: 'table'
           severity: 'CRITICAL,HIGH,MEDIUM,LOW'
 
