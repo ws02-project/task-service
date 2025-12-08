@@ -20,6 +20,13 @@ export enum TaskPriority {
   URGENT = 'urgent',
 }
 
+export enum TaskType {
+  FEATURE = 'feature',
+  BUG = 'bug',
+  DOCUMENTATION = 'documentation',
+  IMPROVEMENT = 'improvement',
+}
+
 @Entity('tasks')
 export class Task {
   @PrimaryGeneratedColumn('uuid')
@@ -45,6 +52,13 @@ export class Task {
   })
   priority!: TaskPriority;
 
+  @Column({
+    type: 'varchar',
+    length: 50,
+    default: TaskType.FEATURE,
+  })
+  type!: TaskType;
+
   @Column({ type: 'uuid', nullable: true, name: 'project_id' })
   projectId?: string;
 
@@ -63,6 +77,7 @@ export interface CreateTaskDTO {
   description?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
+  type?: TaskType;
   projectId?: string;
   assignedTo?: string;
 }
@@ -72,6 +87,7 @@ export interface UpdateTaskDTO {
   description?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
+  type?: TaskType;
   projectId?: string;
   assignedTo?: string;
 }

@@ -1,5 +1,12 @@
 import { Repository } from 'typeorm';
-import { Task, CreateTaskDTO, UpdateTaskDTO, TaskStatus, TaskPriority } from '../models/task.model';
+import {
+  Task,
+  CreateTaskDTO,
+  UpdateTaskDTO,
+  TaskStatus,
+  TaskPriority,
+  TaskType,
+} from '../models/task.model';
 import createApiError from '../utils/ApiError';
 import httpStatus from 'http-status';
 import { AppDataSource } from '../config/database';
@@ -50,6 +57,7 @@ export const createTask = async (taskData: CreateTaskDTO): Promise<Task> => {
     description: taskData.description,
     status: taskData.status || TaskStatus.PENDING,
     priority: taskData.priority || TaskPriority.MEDIUM,
+    type: taskData.type || TaskType.FEATURE,
     projectId: taskData.projectId,
     assignedTo: taskData.assignedTo,
   });

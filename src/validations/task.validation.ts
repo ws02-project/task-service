@@ -1,15 +1,18 @@
 import Joi from 'joi';
-import { TaskStatus, TaskPriority } from '../models/task.model';
+import { TaskStatus, TaskPriority, TaskType } from '../models/task.model';
 
 export const createTaskSchema = {
   body: Joi.object({
     title: Joi.string().required().min(1).max(255),
-    description: Joi.string().optional().max(5000),
+    description: Joi.string().required().min(1).max(5000),
     status: Joi.string()
       .valid(...Object.values(TaskStatus))
       .optional(),
     priority: Joi.string()
       .valid(...Object.values(TaskPriority))
+      .optional(),
+    type: Joi.string()
+      .valid(...Object.values(TaskType))
       .optional(),
     projectId: Joi.string().uuid().optional(),
     assignedTo: Joi.string().optional().max(255),
@@ -25,6 +28,9 @@ export const updateTaskSchema = {
       .optional(),
     priority: Joi.string()
       .valid(...Object.values(TaskPriority))
+      .optional(),
+    type: Joi.string()
+      .valid(...Object.values(TaskType))
       .optional(),
     projectId: Joi.string().uuid().optional(),
     assignedTo: Joi.string().optional().max(255).allow(null, ''),
