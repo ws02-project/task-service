@@ -51,6 +51,7 @@ export const getTasksByPriority = async (priority: TaskPriority): Promise<Task[]
 };
 
 export const createTask = async (taskData: CreateTaskDTO): Promise<Task> => {
+  const startTime = Date.now();
   const taskRepository = getTaskRepository();
   const task = taskRepository.create({
     title: taskData.title,
@@ -64,6 +65,17 @@ export const createTask = async (taskData: CreateTaskDTO): Promise<Task> => {
 
   const savedTask = await taskRepository.save(task);
 
+  logger.info('Task created', {
+    type: 'task_created',
+    taskId: savedTask.id,
+    projectId: savedTask.projectId,
+    status: savedTask.status,
+    priority: savedTask.priority,
+    taskType: savedTask.type,
+    assignedTo: savedTask.assignedTo,
+    duration: Date.now() - startTime,
+  });
+
   // Publish task assigned event if assignedTo is provided
   if (savedTask.assignedTo && savedTask.projectId) {
     try {
@@ -75,9 +87,19 @@ export const createTask = async (taskData: CreateTaskDTO): Promise<Task> => {
         savedTask.title,
         savedTask.description || undefined,
       );
-      logger.info(`📤 Published task.assigned event for task ${savedTask.id}`);
+      logger.info('Event published - task.assigned', {
+        type: 'event_published',
+        eventType: 'task.assigned',
+        taskId: savedTask.id,
+        assignedTo: savedTask.assignedTo,
+      });
     } catch (error) {
-      logger.error('Failed to publish task assigned event:', error);
+      logger.error('Failed to publish task.assigned event', {
+        type: 'event_publish_failed',
+        eventType: 'task.assigned',
+        taskId: savedTask.id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       // Don't fail the task creation if event publishing fails
     }
   }
@@ -86,8 +108,13 @@ export const createTask = async (taskData: CreateTaskDTO): Promise<Task> => {
 };
 
 export const updateTask = async (id: string, updateData: UpdateTaskDTO): Promise<Task> => {
+  const startTime = Date.now();
   const taskRepository = getTaskRepository();
   const task = await getTaskById(id);
+
+  // Track status change
+  const oldStatus = task.status;
+  const oldAssignee = task.assignedTo;
 
   // Check if assignment is changing
   const wasAssigned = task.assignedTo;
@@ -97,10 +124,35 @@ export const updateTask = async (id: string, updateData: UpdateTaskDTO): Promise
   Object.assign(task, updateData);
   const savedTask = await taskRepository.save(task);
 
+  // Log status change
+  if (updateData.status && updateData.status !== oldStatus) {
+    logger.info('Task status changed', {
+      type: 'task_status_changed',
+      taskId: savedTask.id,
+      projectId: savedTask.projectId,
+      oldStatus,
+      newStatus: savedTask.status,
+    });
+  }
+
+  logger.info('Task updated', {
+    type: 'task_updated',
+    taskId: savedTask.id,
+    projectId: savedTask.projectId,
+    duration: Date.now() - startTime,
+  });
+
   // Publish task assigned event if:
   // 1. Task is being newly assigned (wasn't assigned before, now is)
   // 2. Task assignment is changing to a different user
   if (isBeingAssigned && savedTask.projectId && savedTask.assignedTo) {
+    logger.info('Task assigned', {
+      type: 'task_assigned',
+      taskId: savedTask.id,
+      projectId: savedTask.projectId,
+      assignedTo: savedTask.assignedTo,
+      previousAssignee: oldAssignee,
+    });
     try {
       await publishTaskAssigned(
         savedTask.id,
@@ -110,24 +162,46 @@ export const updateTask = async (id: string, updateData: UpdateTaskDTO): Promise
         savedTask.title,
         savedTask.description || undefined,
       );
-      logger.info(
-        `📤 Published task.assigned event for task ${savedTask.id} (assigned to ${savedTask.assignedTo})`,
-      );
+      logger.info('Event published - task.assigned', {
+        type: 'event_published',
+        eventType: 'task.assigned',
+        taskId: savedTask.id,
+        assignedTo: savedTask.assignedTo,
+      });
     } catch (error) {
-      logger.error('Failed to publish task assigned event:', error);
+      logger.error('Failed to publish task.assigned event', {
+        type: 'event_publish_failed',
+        eventType: 'task.assigned',
+        taskId: savedTask.id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       // Don't fail the task update if event publishing fails
     }
   } else if (isBeingUnassigned && wasAssigned) {
-    logger.info(`📝 Task ${savedTask.id} unassigned (was assigned to ${wasAssigned})`);
+    logger.info('Task unassigned', {
+      type: 'task_unassigned',
+      taskId: savedTask.id,
+      projectId: savedTask.projectId,
+      previousAssignee: wasAssigned,
+    });
   }
 
   return savedTask;
 };
 
 export const deleteTask = async (id: string): Promise<void> => {
+  const startTime = Date.now();
   const taskRepository = getTaskRepository();
   const task = await getTaskById(id);
+
   await taskRepository.remove(task);
+
+  logger.info('Task deleted', {
+    type: 'task_deleted',
+    taskId: id,
+    projectId: task.projectId,
+    duration: Date.now() - startTime,
+  });
 };
 
 export const getTaskStatistics = async () => {
@@ -256,15 +330,19 @@ export const deleteTasksByProjectGrpc = async (
 };
 
 export const handleProjectCreated = async (event: Record<string, unknown>, _metadata: unknown) => {
-  logger.info('🆕 Project created:', {
+  logger.info('Event received - project.created', {
+    type: 'event_received',
+    eventType: 'project.created',
     projectId: event.projectId,
-    name: event.name,
-    status: event.status,
+    projectName: event.name,
+    projectStatus: event.status,
   });
 };
 
 export const handleProjectDeleted = async (event: Record<string, unknown>, _metadata: unknown) => {
-  logger.info('🗑️ Project deleted:', {
+  logger.info('Event received - project.deleted', {
+    type: 'event_received',
+    eventType: 'project.deleted',
     projectId: event.projectId,
   });
 };
