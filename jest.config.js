@@ -7,6 +7,13 @@ module.exports = {
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
+  // Transform ESM modules that Jest can't handle
+  transformIgnorePatterns: [
+    'node_modules/(?!(uuid)/)',
+  ],
+  moduleNameMapper: {
+    '^uuid$': require.resolve('uuid'),
+  },
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
   collectCoverageFrom: [
     'src/**/*.ts',
