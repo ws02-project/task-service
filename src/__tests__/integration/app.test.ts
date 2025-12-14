@@ -1,6 +1,15 @@
 import request from 'supertest';
 import app from '../../app';
 
+// Mock the auth middleware to bypass authentication for integration tests
+jest.mock('../../middlewares/auth', () => ({
+  authenticate: jest.fn((_req, _res, next) => {
+    _req.user = { id: 'test-user-id', email: 'test@example.com', role: 'admin' };
+    next();
+  }),
+  authorize: jest.fn(() => (_req: unknown, _res: unknown, next: () => void) => next()),
+}));
+
 // Mock the database
 jest.mock('../../config/database', () => ({
   AppDataSource: {

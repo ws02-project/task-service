@@ -12,6 +12,7 @@ export const config = {
   grpc: {
     port: parseInt(process.env.GRPC_PORT || '50052', 10),
     projectServiceUrl: process.env.PROJECT_SERVICE_GRPC_URL || 'localhost:50051',
+    userServiceUrl: process.env.USER_SERVICE_GRPC_URL || 'localhost:50053',
   },
   db: {
     host: process.env.DB_HOST || 'localhost',
