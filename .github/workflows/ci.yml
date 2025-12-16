@@ -99,17 +99,14 @@ jobs:
     name: Build and Push Docker Image
     needs: [test, release-please]
     # Build when:
-    # - A release was created (semantic version)
+    # - A release was created (semantic version) → tag as v1.0.0
+    # - Push to master without release → tag as dev-{sha}
     # - Proto files updated (repository_dispatch)
     # - PR builds (for testing)
     if: |
       always() &&
       needs.test.result == 'success' &&
-      (
-        needs.release-please.outputs.release_created == 'true' ||
-        github.event_name == 'repository_dispatch' ||
-        github.event_name == 'pull_request'
-      )
+      (needs.release-please.result == 'success' || needs.release-please.result == 'skipped')
 
     steps:
       - name: Display trigger information
@@ -261,7 +258,7 @@ jobs:
           echo "message=$COMMIT_MSG" >> $GITHUB_OUTPUT
 
       - name: Trigger deployment update
-        if: steps.meta.outputs.is_release == 'true'
+        if: github.event_name == 'push' || github.event_name == 'repository_dispatch'
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.PAT_TOKEN }}
@@ -274,6 +271,6 @@ jobs:
               "image_full": "${{ steps.meta.outputs.image }}",
               "commit_sha": "${{ github.sha }}",
               "commit_message": "${{ steps.commit.outputs.message }}",
-              "version": "${{ needs.release-please.outputs.version }}",
-              "is_release": true
+              "version": "${{ needs.release-please.outputs.version || 'dev' }}",
+              "is_release": ${{ steps.meta.outputs.is_release }}
             }
