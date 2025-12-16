@@ -5,9 +5,7 @@ name: Task Service CI/CD
 
 on:
   push:
-    branches: [main, master, develop]
-    tags:
-      - 'v*'
+    branches: [main, master]
   pull_request:
     branches: [main, master]
   repository_dispatch:
@@ -18,20 +16,49 @@ env:
   ECR_REGISTRY: 158670175038.dkr.ecr.ap-southeast-1.amazonaws.com
   ECR_REPOSITORY: docker
   SERVICE_NAME: task-service
-  IMAGE_NAME: task
 
 permissions:
   id-token: write # Required for OIDC authentication
-  contents: read # Required to checkout code
+  contents: write # Required for release-please to create releases
+  pull-requests: write # Required for release-please to create PRs
 
 jobs:
+  # ============================================
+  # Release Please - Automatic Semantic Versioning
+  # ============================================
+  release-please:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Run Release Please
+        uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          release-type: node
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release Output
+        if: steps.release.outputs.release_created
+        run: |
+          echo "## 🎉 Release Created!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** ${{ steps.release.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================
+  # Test Job
+  # ============================================
   test:
     runs-on: ubuntu-latest
     name: Run Tests
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -39,7 +66,7 @@ jobs:
           version: 10
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: 24.x
           cache: 'pnpm'
@@ -63,11 +90,25 @@ jobs:
           name: task-service-coverage
           fail_ci_if_error: false
 
+  # ============================================
+  # Build and Push Docker Image
+  # ============================================
   build-and-push:
     runs-on: ubuntu-latest
     name: Build and Push Docker Image
-    needs: test
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'repository_dispatch'
+    needs: [test, release-please]
+    # Build when:
+    # - A release was created (semantic version)
+    # - Proto files updated (repository_dispatch)
+    # - PR builds (for testing)
+    if: |
+      always() &&
+      needs.test.result == 'success' &&
+      (
+        needs.release-please.outputs.release_created == 'true' ||
+        github.event_name == 'repository_dispatch' ||
+        github.event_name == 'pull_request'
+      )
 
     steps:
       - name: Display trigger information
@@ -87,10 +128,10 @@ jobs:
           echo "🔄 Rebuilding service due to proto file changes..."
 
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Checkout proto repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           repository: ws02-project/proto
           path: proto
@@ -109,7 +150,7 @@ jobs:
           fi
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -121,14 +162,28 @@ jobs:
       - name: Set image tag
         id: meta
         run: |
-          if [[ "${{ github.event_name }}" == "push" && "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]]; then
-            IMAGE_TAG=${GITHUB_REF#refs/tags/v}
+          # Determine the image tag based on trigger type
+          if [[ "${{ needs.release-please.outputs.release_created }}" == "true" ]]; then
+            # Release build - use semantic version (v0.1.0)
+            IMAGE_TAG="${{ needs.release-please.outputs.tag_name }}"
+            IS_RELEASE="true"
+          elif [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            # Proto update - use commit SHA with proto prefix
+            IMAGE_TAG="proto-${GITHUB_SHA::8}"
+            IS_RELEASE="false"
           else
-            IMAGE_TAG=${GITHUB_SHA::8}
+            # PR or dev build - use commit SHA
+            IMAGE_TAG="dev-${GITHUB_SHA::8}"
+            IS_RELEASE="false"
           fi
+
           echo "tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
-          echo "image=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_NAME }}-$IMAGE_TAG" >> $GITHUB_OUTPUT
-          echo "image_latest=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_NAME }}-latest" >> $GITHUB_OUTPUT
+          echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
+          echo "image=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "image_latest=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.SERVICE_NAME }}-latest" >> $GITHUB_OUTPUT
+
+          echo "## 🏷️ Image Tag: \`$IMAGE_TAG\`" >> $GITHUB_STEP_SUMMARY
+          echo "Release: $IS_RELEASE" >> $GITHUB_STEP_SUMMARY
 
       - name: Install dependencies for Trivy scan
         run: |
@@ -205,6 +260,7 @@ jobs:
           echo "message=$COMMIT_MSG" >> $GITHUB_OUTPUT
 
       - name: Trigger deployment update
+        if: steps.meta.outputs.is_release == 'true'
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.PAT_TOKEN }}
@@ -216,5 +272,7 @@ jobs:
               "image_tag": "${{ steps.meta.outputs.tag }}",
               "image_full": "${{ steps.meta.outputs.image }}",
               "commit_sha": "${{ github.sha }}",
-              "commit_message": "${{ steps.commit.outputs.message }}"
+              "commit_message": "${{ steps.commit.outputs.message }}",
+              "version": "${{ needs.release-please.outputs.version }}",
+              "is_release": true
             }
