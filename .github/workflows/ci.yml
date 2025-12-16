@@ -1,15 +1,12 @@
 name: Task Service CI/CD
 
-# This workflow is for task-service when in its own repository
-# Place this file in: task-service/.github/workflows/ci.yml
-
 on:
   push:
     branches: [main, master]
   pull_request:
     branches: [main, master]
   repository_dispatch:
-    types: [proto-updated] # Triggered when proto repository changes
+    types: [proto-updated]
 
 env:
   AWS_REGION: ap-southeast-1
@@ -18,50 +15,10 @@ env:
   SERVICE_NAME: task-service
 
 permissions:
-  id-token: write # Required for OIDC authentication
-  contents: write # Required to create tags and releases
+  id-token: write
+  contents: write
 
 jobs:
-  # ============================================
-  # Automatic Semantic Versioning
-  # ============================================
-  semantic-version:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-    outputs:
-      new_tag: ${{ steps.tag.outputs.new_tag }}
-      new_version: ${{ steps.tag.outputs.new_version }}
-      changelog: ${{ steps.tag.outputs.changelog }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Bump version and push tag
-        id: tag
-        uses: mathieudutour/github-tag-action@v6.2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          default_bump: patch
-          release_branches: master,main
-
-      - name: Create GitHub Release
-        if: steps.tag.outputs.new_tag
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.tag.outputs.new_tag }}
-          name: ${{ steps.tag.outputs.new_tag }}
-          body: ${{ steps.tag.outputs.changelog }}
-          generate_release_notes: true
-
-      - name: Release Output
-        if: steps.tag.outputs.new_tag
-        run: |
-          echo "## 🎉 Release Created!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ steps.tag.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Tag:** ${{ steps.tag.outputs.new_tag }}" >> $GITHUB_STEP_SUMMARY
-
   # ============================================
   # Test Job
   # ============================================
@@ -109,36 +66,17 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     name: Build and Push Docker Image
-    needs: [test, semantic-version]
-    # Build when:
-    # - A release was created (semantic version) → tag as v1.0.0
-    # - Push to master without release → tag as dev-{sha}
-    # - Proto files updated (repository_dispatch)
-    # - PR builds (for testing)
-    if: |
-      always() &&
-      needs.test.result == 'success' &&
-      (needs.semantic-version.result == 'success' || needs.semantic-version.result == 'skipped')
+    needs: test
+    if: needs.test.result == 'success'
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+      new_version: ${{ steps.version.outputs.new_version }}
 
     steps:
-      - name: Display trigger information
-        if: github.event_name == 'repository_dispatch'
-        run: |
-          echo "## 🔄 Triggered by Proto Repository Update" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Proto Commit:** \`${{ github.event.client_payload.proto_commit_sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit Message:** ${{ github.event.client_payload.proto_commit_message }}" >> $GITHUB_STEP_SUMMARY
-          if [ -n "${{ github.event.client_payload.changed_files }}" ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Changed Files:**" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            echo "${{ github.event.client_payload.changed_files }}" >> $GITHUB_STEP_SUMMARY
-            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "🔄 Rebuilding service due to proto file changes..."
-
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Checkout proto repository
         uses: actions/checkout@v4
@@ -147,17 +85,16 @@ jobs:
           path: proto
           token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Debug - Check AWS_ROLE_ARN variable
-        run: |
-          echo "AWS_ROLE_ARN value: ${{ vars.AWS_ROLE_ARN }}"
-          if [ -z "${{ vars.AWS_ROLE_ARN }}" ]; then
-            echo "⚠️  WARNING: AWS_ROLE_ARN variable is not set!"
-            echo "Please add it as a repository variable:"
-            echo "Repository → Settings → Secrets and variables → Actions → Variables"
-            echo "Name: AWS_ROLE_ARN"
-            echo "Value: arn:aws:iam::158670175038:role/registry-github-actions-role"
-            exit 1
-          fi
+      # Calculate next version (dry run - no tag created yet)
+      - name: Calculate next version
+        id: version
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_bump: patch
+          release_branches: master,main
+          dry_run: true
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -172,17 +109,13 @@ jobs:
       - name: Set image tag
         id: meta
         run: |
-          # Determine the image tag based on trigger type
-          if [[ -n "${{ needs.semantic-version.outputs.new_tag }}" ]]; then
-            # Release build - use semantic version (v1.0.1)
-            IMAGE_TAG="${{ needs.semantic-version.outputs.new_tag }}"
+          if [[ -n "${{ steps.version.outputs.new_tag }}" ]]; then
+            IMAGE_TAG="${{ steps.version.outputs.new_tag }}"
             IS_RELEASE="true"
           elif [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
-            # Proto update - use commit SHA with proto prefix
             IMAGE_TAG="proto-${GITHUB_SHA::8}"
             IS_RELEASE="false"
           else
-            # PR or dev build - use commit SHA
             IMAGE_TAG="dev-${GITHUB_SHA::8}"
             IS_RELEASE="false"
           fi
@@ -193,7 +126,6 @@ jobs:
           echo "image_latest=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.SERVICE_NAME }}-latest" >> $GITHUB_OUTPUT
 
           echo "## 🏷️ Image Tag: \`$IMAGE_TAG\`" >> $GITHUB_STEP_SUMMARY
-          echo "Release: $IS_RELEASE" >> $GITHUB_STEP_SUMMARY
 
       - name: Install dependencies for Trivy scan
         run: |
@@ -208,7 +140,7 @@ jobs:
           scan-ref: '.'
           format: 'table'
           severity: 'CRITICAL,HIGH,MEDIUM'
-          exit-code: '0' # Don't fail on filesystem scan, just report
+          exit-code: '0'
 
       - name: Build Docker image
         env:
@@ -217,18 +149,17 @@ jobs:
           echo "Building Docker image: $IMAGE_NAME"
           docker build -t $IMAGE_NAME -f Dockerfile .
           docker tag $IMAGE_NAME ${{ steps.meta.outputs.image_latest }}
-          # Also tag with a simple local name for Trivy scanning
           docker tag $IMAGE_NAME ${{ env.SERVICE_NAME }}:scan
 
-      - name: Run Trivy image scan (Table output - Show all vulnerabilities)
+      - name: Run Trivy image scan (Show all vulnerabilities)
         uses: aquasecurity/trivy-action@master
-        continue-on-error: true # Show results even if vulnerabilities found
+        continue-on-error: true
         with:
           scan-type: 'image'
           image-ref: '${{ env.SERVICE_NAME }}:scan'
           format: 'table'
           severity: 'CRITICAL,HIGH,MEDIUM,LOW'
-          exit-code: '0' # Don't fail here, just show results
+          exit-code: '0'
 
       - name: Run Trivy image scan (Fail on CRITICAL/HIGH)
         uses: aquasecurity/trivy-action@master
@@ -237,7 +168,7 @@ jobs:
           image-ref: '${{ env.SERVICE_NAME }}:scan'
           format: 'table'
           severity: 'CRITICAL,HIGH'
-          exit-code: '1' # Fail pipeline if CRITICAL or HIGH vulnerabilities found
+          exit-code: '1'
 
       - name: Push Docker image to ECR
         env:
@@ -250,27 +181,68 @@ jobs:
 
       - name: Image details
         run: |
-          echo "✅ Successfully pushed Task Service image:"
+          echo "✅ Successfully pushed image:"
           echo "  Image: ${{ steps.meta.outputs.image }}"
           echo "  Latest: ${{ steps.meta.outputs.image_latest }}"
+
+  # ============================================
+  # Create Release (only after successful build)
+  # ============================================
+  release:
+    runs-on: ubuntu-latest
+    name: Create Release
+    needs: build-and-push
+    if: |
+      needs.build-and-push.result == 'success' &&
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Now actually create the tag (not dry run)
+      - name: Create version tag
+        id: tag
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_bump: patch
+          release_branches: master,main
+
+      - name: Create GitHub Release
+        if: steps.tag.outputs.new_tag
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.new_tag }}
+          name: ${{ steps.tag.outputs.new_tag }}
+          body: |
+            ${{ steps.tag.outputs.changelog }}
+
+            **Docker Image:** `${{ needs.build-and-push.outputs.image_tag }}`
+          generate_release_notes: true
+
+      - name: Release Output
+        run: |
+          echo "## 🎉 Release Created!" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.tag.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** ${{ steps.tag.outputs.new_tag }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Get commit message
         id: commit
         run: |
-          # Check if this is a merge commit
           PARENT_COUNT=$(git cat-file -p HEAD | grep -c "^parent")
           if [ "$PARENT_COUNT" -gt 1 ]; then
-            # For merge commits, get the title from the merged branch's last commit
             COMMIT_MSG=$(git log -1 --pretty=%s HEAD^2 2>/dev/null || git log -1 --pretty=%s)
           else
             COMMIT_MSG=$(git log -1 --pretty=%s)
           fi
-          # Truncate long messages
           COMMIT_MSG=$(echo "$COMMIT_MSG" | head -c 100)
           echo "message=$COMMIT_MSG" >> $GITHUB_OUTPUT
 
       - name: Trigger deployment update
-        if: github.event_name == 'push' || github.event_name == 'repository_dispatch'
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.PAT_TOKEN }}
@@ -279,10 +251,9 @@ jobs:
           client-payload: |-
             {
               "service": "task-service",
-              "image_tag": "${{ steps.meta.outputs.tag }}",
-              "image_full": "${{ steps.meta.outputs.image }}",
+              "image_tag": "${{ needs.build-and-push.outputs.image_tag }}",
               "commit_sha": "${{ github.sha }}",
               "commit_message": "${{ steps.commit.outputs.message }}",
-              "version": "${{ needs.semantic-version.outputs.new_version || 'dev' }}",
-              "is_release": ${{ steps.meta.outputs.is_release }}
+              "version": "${{ steps.tag.outputs.new_version }}",
+              "is_release": true
             }
