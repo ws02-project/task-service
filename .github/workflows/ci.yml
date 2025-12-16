@@ -39,7 +39,7 @@ jobs:
         id: release
         with:
           release-type: node
-          token: ${{ secrets.PAT_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Release Output
         if: steps.release.outputs.release_created
