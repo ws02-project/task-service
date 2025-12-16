@@ -40,6 +40,7 @@ jobs:
         with:
           release-type: node
           token: ${{ secrets.GITHUB_TOKEN }}
+          skip-github-pull-request: true
 
       - name: Release Output
         if: steps.release.outputs.release_created
