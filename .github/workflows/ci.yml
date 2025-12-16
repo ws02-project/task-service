@@ -19,8 +19,7 @@ env:
 
 permissions:
   id-token: write # Required for OIDC authentication
-  contents: write # Required for release-please to create releases
-  pull-requests: write # Required for release-please to create PRs
+  contents: write # Required to create tags and releases
 
 jobs:
   # ============================================
