@@ -188,3 +188,16 @@ export const hasRole = (userRole: UserRole, allowedRoles: string[]): boolean => 
   const roleStr = roleToString(userRole);
   return allowedRoles.includes(roleStr);
 };
+
+/**
+ * Check if user exists by ID
+ * Returns true if user exists, false otherwise
+ */
+export const userExists = async (userId: string): Promise<boolean> => {
+  try {
+    await getUser(userId);
+    return true;
+  } catch {
+    return false;
+  }
+};

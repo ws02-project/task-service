@@ -53,6 +53,16 @@ export const getTasksByPriority = async (priority: TaskPriority): Promise<Task[]
 export const createTask = async (taskData: CreateTaskDTO): Promise<Task> => {
   const startTime = Date.now();
   const taskRepository = getTaskRepository();
+
+  // Validate that assigned user exists if assignedTo is provided
+  if (taskData.assignedTo) {
+    const { userExists } = await import('../grpc/clients/user.grpc.client');
+    const exists = await userExists(taskData.assignedTo);
+    if (!exists) {
+      throw createApiError(httpStatus.BAD_REQUEST, 'Assigned user does not exist');
+    }
+  }
+
   const task = taskRepository.create({
     title: taskData.title,
     description: taskData.description,
@@ -111,6 +121,15 @@ export const updateTask = async (id: string, updateData: UpdateTaskDTO): Promise
   const startTime = Date.now();
   const taskRepository = getTaskRepository();
   const task = await getTaskById(id);
+
+  // Validate that assigned user exists if assignedTo is being changed
+  if (updateData.assignedTo && updateData.assignedTo !== task.assignedTo) {
+    const { userExists } = await import('../grpc/clients/user.grpc.client');
+    const exists = await userExists(updateData.assignedTo);
+    if (!exists) {
+      throw createApiError(httpStatus.BAD_REQUEST, 'Assigned user does not exist');
+    }
+  }
 
   // Track status change
   const oldStatus = task.status;
@@ -224,6 +243,14 @@ export const getTasksByProjectId = async (projectId: string): Promise<Task[]> =>
   const taskRepository = getTaskRepository();
   return await taskRepository.find({
     where: { projectId },
+    order: { createdAt: 'DESC' },
+  });
+};
+
+export const getTasksByAssignee = async (userId: string): Promise<Task[]> => {
+  const taskRepository = getTaskRepository();
+  return await taskRepository.find({
+    where: { assignedTo: userId },
     order: { createdAt: 'DESC' },
   });
 };

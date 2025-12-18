@@ -39,3 +39,13 @@ export const deleteTask: RequestHandler = catchAsync(async (req: Request, res: R
   await taskService.deleteTask(req.params.id);
   res.status(httpStatus.NO_CONTENT).send();
 });
+
+export const getTasksByAssignee: RequestHandler = catchAsync(
+  async (req: Request, res: Response) => {
+    const tasks = await taskService.getTasksByAssignee(req.params.userId);
+    res.status(httpStatus.OK).json({
+      success: true,
+      data: tasks,
+    });
+  },
+);

@@ -11,7 +11,7 @@ export const AppDataSource = new DataSource({
   username: config.db.user,
   password: config.db.password,
   database: config.db.name,
-  synchronize: config.env === 'development', // Auto-sync schema in development only
+  synchronize: false, // Disabled - use migrations instead
   logging: config.env === 'development',
   entities: [Task],
   migrations: [config.env === 'production' ? 'dist/migrations/**/*.js' : 'src/migrations/**/*.ts'],

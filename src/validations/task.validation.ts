@@ -15,7 +15,7 @@ export const createTaskSchema = {
       .valid(...Object.values(TaskType))
       .optional(),
     projectId: Joi.string().uuid().optional(),
-    assignedTo: Joi.string().optional().max(255),
+    assignedTo: Joi.string().uuid().optional(),
   }),
 };
 
@@ -33,7 +33,7 @@ export const updateTaskSchema = {
       .valid(...Object.values(TaskType))
       .optional(),
     projectId: Joi.string().uuid().optional(),
-    assignedTo: Joi.string().optional().max(255).allow(null, ''),
+    assignedTo: Joi.string().uuid().optional().allow(null, ''),
   }).min(1),
   params: Joi.object({
     id: Joi.string().uuid().required(),
@@ -49,5 +49,11 @@ export const getTaskSchema = {
 export const deleteTaskSchema = {
   params: Joi.object({
     id: Joi.string().uuid().required(),
+  }),
+};
+
+export const getTasksByAssigneeSchema = {
+  params: Joi.object({
+    userId: Joi.string().uuid().required(),
   }),
 };

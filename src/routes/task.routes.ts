@@ -16,6 +16,11 @@ router
   .get(taskController.getAllTasks)
   .post(validate(taskValidation.createTaskSchema), taskController.createTask);
 
+// Get tasks by assignee - all authenticated users
+router
+  .route('/assignee/:userId')
+  .get(validate(taskValidation.getTasksByAssigneeSchema), taskController.getTasksByAssignee);
+
 // Get task - all authenticated users
 // Update task - all authenticated users (can update assigned tasks)
 // Delete task - admin only
