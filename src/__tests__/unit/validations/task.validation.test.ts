@@ -30,7 +30,7 @@ describe('Task Validation Schemas', () => {
         priority: 'high',
         type: 'bug',
         projectId: '550e8400-e29b-41d4-a716-446655440000',
-        assignedTo: 'user-123',
+        assignedTo: '550e8400-e29b-41d4-a716-446655440001',
       });
       expect(error).toBeUndefined();
     });
