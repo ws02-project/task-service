@@ -87,11 +87,11 @@ export const createTask = async (taskData: CreateTaskDTO): Promise<Task> => {
   });
 
   // Publish task assigned event if assignedTo is provided
-  if (savedTask.assignedTo && savedTask.projectId) {
+  if (savedTask.assignedTo) {
     try {
       await publishTaskAssigned(
         savedTask.id,
-        savedTask.projectId,
+        savedTask.projectId, // Can be null - notification will still be sent
         savedTask.assignedTo,
         undefined, // assignedBy - could be extracted from request context in the future
         savedTask.title,
@@ -164,7 +164,7 @@ export const updateTask = async (id: string, updateData: UpdateTaskDTO): Promise
   // Publish task assigned event if:
   // 1. Task is being newly assigned (wasn't assigned before, now is)
   // 2. Task assignment is changing to a different user
-  if (isBeingAssigned && savedTask.projectId && savedTask.assignedTo) {
+  if (isBeingAssigned && savedTask.assignedTo) {
     logger.info('Task assigned', {
       type: 'task_assigned',
       taskId: savedTask.id,
@@ -175,7 +175,7 @@ export const updateTask = async (id: string, updateData: UpdateTaskDTO): Promise
     try {
       await publishTaskAssigned(
         savedTask.id,
-        savedTask.projectId,
+        savedTask.projectId, // Can be null - notification will still be sent
         savedTask.assignedTo,
         undefined, // assignedBy - could be extracted from request context in the future
         savedTask.title,
