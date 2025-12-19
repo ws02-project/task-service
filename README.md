@@ -2,7 +2,7 @@
 
 Microservice for task lifecycle management with project association, gRPC inter-service communication, and event publishing.
 
-## Tech Stack
+## Tech Stack updated
 
 | Category   | Technology           |
 | ---------- | -------------------- |
