@@ -160,7 +160,7 @@ export async function publishTaskStatusChanged(
  */
 export async function publishTaskAssigned(
   taskId: string,
-  projectId: string,
+  projectId: string | null | undefined,
   assignedTo: string,
   assignedBy?: string,
   taskTitle?: string,
@@ -168,7 +168,7 @@ export async function publishTaskAssigned(
 ): Promise<void> {
   await eventBus.publish('task.assigned', 'task.assigned', 'task.TaskAssignedEvent', {
     taskId,
-    projectId,
+    projectId: projectId || '',
     assignedTo,
     assignedBy: assignedBy || '',
     timestamp: Date.now(),

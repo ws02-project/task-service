@@ -17,6 +17,10 @@ jest.mock('../../../messaging', () => ({
   publishTaskAssigned: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('../../../grpc/clients/user.grpc.client', () => ({
+  userExists: jest.fn().mockResolvedValue(true),
+}));
+
 jest.mock('../../../utils/logger', () => ({
   info: jest.fn(),
   error: jest.fn(),
